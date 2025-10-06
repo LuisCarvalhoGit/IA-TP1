@@ -2,20 +2,75 @@
 <model version="NetLogo 7.0.0" snapToGrid="true">
   <code><![CDATA[globals [step-counter]
 
+breed [meteoritos meteorito]
+
+patches-own [
+  afetado?  ;; se o patch foi atingido por um meteorito
+]
+
+meteoritos-own [
+  ja-infetou?   ;; se este meteorito já infetou algum patch
+]
+
 to setup 
   clear-all
   set-default-shape turtles "tatauga"
   ask patches [
     ifelse pycor <= 10 [set pcolor [73 104 144]] [set pcolor [130 170 222]]
+    set afetado? false
   ]
   
   create-turtles Pop_size [
-  move-to one-of patches with [pycor <= 8]
+  move-to one-of patches with [pycor <= 9 and pycor >= -14 and pxcor >= -14 and pxcor <= 14]
   set heading random 360
   set size 1.5
 ]
-  set step-counter 0
+  
   reset-ticks
+  
+end
+
+to go
+  ask turtles [
+    forward 0.1
+    ]
+  
+ ;; Criar meteorito no topo, probabilidade baixa por tick
+  if random-float 1 < 0.05 [
+    create-meteoritos 1 [
+      setxy random-xcor max-pycor
+      set color orange
+      set ja-infetou? false
+    ]
+  ]
+  
+  ask meteoritos [
+    cair
+  ]
+  
+    tick
+end
+
+to cair ;; comportamento dos meteoritos
+  ;; Desce na vertical
+  ;; Só desce se ainda não chegou ao fundo
+  if pycor > min-pycor [
+    set ycor ycor - 1
+    
+    ;; só pode infetar 1 vez, e apenas dentro de água
+    if (not ja-infetou?) and (random-float 1 < 0.2) and (pycor < 10) [
+      ask patch-here [
+        set afetado? true
+        set pcolor violet
+      ]
+      set ja-infetou? true
+    ]
+  ]
+  
+  ;; Se já chegou ao fundo, desaparece
+  if pycor <= min-pycor [
+    die
+  ]
 end
 
 to go_once
@@ -46,7 +101,9 @@ to go_n
   ]
 end
 
-]]></code>
+to-report prob[x]
+  report (random-float 1 < x)
+end]]></code>
   <widgets>
     <view x="368" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-15" height="407" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="407" tickCounterLabel="ticks" maxPycor="15" updateMode="0" maxPxcor="15" minPxcor="-15"></view>
     <slider x="70" step="1" y="180" max="100" width="250" display="Pop_size" height="50" min="0" direction="Horizontal" default="41.0" variable="Pop_size"></slider>
