@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.0" snapToGrid="true">
-  <code><![CDATA[globals [birth-space]
+  <code><![CDATA[globals [step-counter]
 
 to setup 
   clear-all
@@ -10,21 +10,50 @@ to setup
   ]
   
   create-turtles Pop_size [
-  move-to one-of patches with [pycor <= 10]
+  move-to one-of patches with [pycor <= 8]
   set heading random 360
   set size 1.5
 ]
-  
+  set step-counter 0
+  reset-ticks
 end
 
 to go_once
-  ask turtles[forward 0.1]
-end]]></code>
+  ask turtles[
+    let next-patch patch-ahead 1
+      if [pycor] of next-patch <= 8 [  
+        forward 1
+      ] 
+      if [pycor] of next-patch > 8 or [pycor] of next-patch < -15 [ 
+        rt random 180
+      ]
+  ]
+end
+
+to go_n
+  if step-counter < N_moves [
+    ask turtles [
+      let next-patch patch-ahead 1
+      if [pycor] of next-patch <= 8 [  
+        forward 1
+      ] 
+      if [pycor] of next-patch > 8 or [pycor] of next-patch < -15 [ 
+        rt random 180
+      ]
+    ]
+    set step-counter step-counter + 1
+    tick
+  ]
+end
+
+]]></code>
   <widgets>
     <view x="368" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-15" height="407" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="407" tickCounterLabel="ticks" maxPycor="15" updateMode="0" maxPxcor="15" minPxcor="-15"></view>
-    <button x="125" y="95" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
     <slider x="70" step="1" y="180" max="100" width="250" display="Pop_size" height="50" min="0" direction="Horizontal" default="41.0" variable="Pop_size"></slider>
-    <button x="110" y="290" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
+    <button x="150" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
+    <button x="235" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
+    <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="81.0" variable="N_moves"></slider>
+    <button x="75" y="415" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
   </widgets>
   <info>## WHAT IS IT?
 
