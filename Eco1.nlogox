@@ -32,8 +32,14 @@ end
 
 to go
   ask turtles [
-    forward 0.1
-    ]
+    let next-patch patch-ahead 1
+    if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 [  
+        forward 1
+      ] 
+      if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 [ 
+        rt random 180
+      ]
+  ]
   
  ;; Criar meteorito no topo, probabilidade baixa por tick
   if random-float 1 < 0.05 [
@@ -76,10 +82,10 @@ end
 to go_once
   ask turtles[
     let next-patch patch-ahead 1
-      if [pycor] of next-patch <= 8 [  
+    if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 [  
         forward 1
       ] 
-      if [pycor] of next-patch > 8 or [pycor] of next-patch < -15 [ 
+      if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 [ 
         rt random 180
       ]
   ]
@@ -89,10 +95,10 @@ to go_n
   if step-counter < N_moves [
     ask turtles [
       let next-patch patch-ahead 1
-      if [pycor] of next-patch <= 8 [  
+      if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15[  
         forward 1
       ] 
-      if [pycor] of next-patch > 8 or [pycor] of next-patch < -15 [ 
+      if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 [ 
         rt random 180
       ]
     ]
@@ -111,6 +117,7 @@ end]]></code>
     <button x="235" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
     <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="81.0" variable="N_moves"></slider>
     <button x="75" y="415" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
+    <button x="15" y="415" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Go">go</button>
   </widgets>
   <info>## WHAT IS IT?
 
