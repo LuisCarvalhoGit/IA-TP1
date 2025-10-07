@@ -608,7 +608,7 @@ end]]></code>
     <shape name="line half" rotatable="true" editableColorIndex="0">
       <line endX="150" startY="0" marked="true" color="-1920102913" endY="150" startX="150"></line>
     </shape>
-    <shape name="meteorito" rotatable="true" editableColorIndex="0">
+    <shape name="meteorito" rotatable="false" editableColorIndex="0">
       <rectangle endX="225" startY="105" marked="false" color="-303222273" endY="165" startX="75" filled="true"></rectangle>
       <circle x="62" y="107" marked="false" color="-303222273" diameter="178" filled="true"></circle>
       <circle x="75" y="120" marked="false" color="-684578305" diameter="150" filled="true"></circle>
