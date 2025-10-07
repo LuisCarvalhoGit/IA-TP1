@@ -57,6 +57,33 @@ to go
     tick
 end
 
+to mover-tartaruga  ;; procedimento das tartarugas
+  let next-patch patch-ahead 1
+  
+  ;; Verifica se atingiu o número máximo de passos retos
+  if passos-sem-virar >= max-passos-retos [
+    ;; Muda de direção aleatoriamente
+    rt random 90 - 45  ;; vira entre -45 e +45 graus
+    set passos-sem-virar 0
+    set max-passos-retos 5 + random 10  ;; redefine novo limite
+  ]
+  
+  ;; Verifica limites da área de água
+  if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 and 
+     [pxcor] of next-patch >= -14 and [pxcor] of next-patch <= 14 [  
+    forward 1
+    set passos-sem-virar passos-sem-virar + 1
+  ] 
+  
+  ;; Se encontrou um limite, vira
+  if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 or
+     [pxcor] of next-patch < -14 or [pxcor] of next-patch > 14 [ 
+    rt random 180
+    set passos-sem-virar 0
+    set max-passos-retos 5 + random 10
+  ]
+end
+
 to cair ;; comportamento dos meteoritos
   ;; Desce na vertical
   ;; Só desce se ainda não chegou ao fundo
@@ -94,13 +121,7 @@ end
 to go_n
   if step-counter < N_moves [
     ask turtles [
-      let next-patch patch-ahead 1
-      if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15[  
-        forward 1
-      ] 
-      if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 [ 
-        rt random 180
-      ]
+      mover-tartaruga
     ]
     set step-counter step-counter + 1
     tick
@@ -115,7 +136,7 @@ end]]></code>
     <slider x="70" step="1" y="180" max="100" width="250" display="Pop_size" height="50" min="0" direction="Horizontal" default="41.0" variable="Pop_size"></slider>
     <button x="150" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
     <button x="235" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
-    <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="81.0" variable="N_moves"></slider>
+    <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="15.0" variable="N_moves"></slider>
     <button x="75" y="415" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
     <button x="15" y="415" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Go">go</button>
   </widgets>
