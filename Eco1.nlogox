@@ -1,46 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.0" snapToGrid="true">
-  <code><![CDATA[globals [step-counter]
+  <code><![CDATA[globals [
+  step-counter
+]
 
 breed [meteoritos meteorito]
 
 patches-own [
-  afetado?  ;; se o patch foi atingido por um meteorito
+  afetado?           ;; se o patch foi atingido por um meteorito
+  nivel-toxicidade   ;; nível atual de toxicidade (0 = limpo, 10 = muito tóxico)
 ]
 
 meteoritos-own [
-  ja-infetou?   ;; se este meteorito já infetou algum patch
+  ja-infetou?
 ]
 
 turtles-own [
-  passos-sem-virar  ;; contador de passos desde a última mudança de direção
-  max-passos-retos  ;; número máximo de passos antes de virar
+  passos-sem-virar
+  max-passos-retos
 ]
 
 to setup 
   clear-all
   set-default-shape turtles "tatauga"
+  
   ask patches [
+    ;; Água e céu
     ifelse pycor <= 10 [set pcolor [73 104 144]] [set pcolor [130 170 222]]
     set afetado? false
+    set nivel-toxicidade 0
   ]
   
   create-turtles Pop_size [
-  move-to one-of patches with [pycor <= 9 and pycor >= -14 and pxcor >= -14 and pxcor <= 14]
-  set heading random 360
-  set size 1.5
-]
+    move-to one-of patches with [pycor <= 9 and pycor >= -14 and pxcor >= -14 and pxcor <= 14]
+    set heading random 360
+    set size 1.5
+    set passos-sem-virar 0
+    set max-passos-retos 5 + random 10
+  ]
   
+  set step-counter 0
   reset-ticks
-  
 end
 
+to go
+  ask turtles [ mover-tartaruga ]
+  processar-meteoritos
+  degradar-toxicidade
+  tick
+end
+
+
 to processar-meteoritos
-  ;; Criar meteorito no topo, probabilidade baixa por tick
   if random-float 1 < 0.05 [
     create-meteoritos 1 [
+      set heading 180
       setxy random-xcor max-pycor
       set shape "meteorito"
+      set color orange
       set ja-infetou? false
     ]
   ]
@@ -50,36 +67,43 @@ to processar-meteoritos
   ]
 end
 
-to go
-  ask turtles [
-    mover-tartaruga
+to cair
+  if pycor > min-pycor [
+    set ycor ycor - 1
+    set heading 180
+    
+    ;; infeta uma vez dentro da água
+    if (not ja-infetou?) and (random-float 1 < 0.2) and (pycor < 10) [
+      ask patch-here [
+        set afetado? true
+        set nivel-toxicidade 10
+        atualizar-cor
+      ]
+      set ja-infetou? true
+    ]
   ]
   
-  processar-meteoritos
-  
-  tick
+  if pycor <= min-pycor [
+    die
+  ]
 end
 
 
-to mover-tartaruga  ;; procedimento das tartarugas
+to mover-tartaruga
   let next-patch patch-ahead 1
   
-  ;; Verifica se atingiu o número máximo de passos retos
   if passos-sem-virar >= max-passos-retos [
-    ;; Muda de direção aleatoriamente
-    rt random 90 - 45  ;; vira entre -45 e +45 graus
+    rt random 90 - 45
     set passos-sem-virar 0
-    set max-passos-retos 5 + random 10  ;; redefine novo limite
+    set max-passos-retos 5 + random 10
   ]
   
-  ;; Verifica limites da área de água
   if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 and 
      [pxcor] of next-patch >= -14 and [pxcor] of next-patch <= 14 [  
     forward 1
     set passos-sem-virar passos-sem-virar + 1
   ] 
   
-  ;; Se encontrou um limite, vira
   if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 or
      [pxcor] of next-patch < -14 or [pxcor] of next-patch > 14 [ 
     rt random 180
@@ -88,47 +112,53 @@ to mover-tartaruga  ;; procedimento das tartarugas
   ]
 end
 
-to cair ;; comportamento dos meteoritos
-  ;; Desce na vertical
-  ;; Só desce se ainda não chegou ao fundo
-  if pycor > min-pycor [
-    set ycor ycor - 1
+
+to degradar-toxicidade
+  ask patches with [afetado?] [
+    ;; Reduz o nível de toxicidade
+    set nivel-toxicidade nivel-toxicidade - 0.2
     
-    ;; só pode infetar 1 vez, e apenas dentro de água
-    if (not ja-infetou?) and (random-float 1 < 0.2) and (pycor < 10) [
-      ask patch-here [
-        set afetado? true
-        set pcolor violet
-      ]
-      set ja-infetou? true
+    ;; Se já não estiver tóxico, limpa o patch
+    if nivel-toxicidade <= 0 [
+      set afetado? false
+      set nivel-toxicidade 0
     ]
-  ]
-  
-  ;; Se já chegou ao fundo, desaparece
-  if pycor <= min-pycor [
-    die
+    
+    ;; Atualiza cor de patches ainda afetados
+    if afetado? [
+      atualizar-cor
+    ]
   ]
 end
 
+to atualizar-cor
+  ;; cores como listas RGB
+  let cor-inicial [0 100 0]        ;; verde escuro (tóxico)
+  let cor-final [73 104 144]       ;; azul do oceano
+
+  ;; calcula interpolação linear
+  let r item 0 cor-final + (item 0 cor-inicial - item 0 cor-final) * (nivel-toxicidade / 10)
+  let g item 1 cor-final + (item 1 cor-inicial - item 1 cor-final) * (nivel-toxicidade / 10)
+  let b item 2 cor-final + (item 2 cor-inicial - item 2 cor-final) * (nivel-toxicidade / 10)
+
+  ;; define a cor da patch
+  set pcolor (list r g b)
+end
+
+
+
 to go_once
-  ask turtles [
-    mover-tartaruga
-  ]
-  
+  ask turtles [ mover-tartaruga ]
   processar-meteoritos
-  
+  degradar-toxicidade
   tick
 end
 
-
 to go_n
   if step-counter < N_moves [
-    ask turtles [
-      mover-tartaruga
-    ]
-    
+    ask turtles [ mover-tartaruga ]
     processar-meteoritos
-    
+    degradar-toxicidade
     set step-counter step-counter + 1
     tick
   ]
@@ -136,13 +166,14 @@ end
 
 to-report prob[x]
   report (random-float 1 < x)
-end]]></code>
+end
+]]></code>
   <widgets>
     <view x="368" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-15" height="407" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="407" tickCounterLabel="ticks" maxPycor="15" updateMode="0" maxPxcor="15" minPxcor="-15"></view>
     <slider x="70" step="1" y="180" max="100" width="250" display="Pop_size" height="50" min="0" direction="Horizontal" default="41.0" variable="Pop_size"></slider>
     <button x="150" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
     <button x="235" y="415" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
-    <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="15.0" variable="N_moves"></slider>
+    <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="82.0" variable="N_moves"></slider>
     <button x="75" y="415" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
     <button x="15" y="415" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Go">go</button>
   </widgets>
