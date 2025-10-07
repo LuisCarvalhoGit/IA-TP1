@@ -12,6 +12,11 @@ meteoritos-own [
   ja-infetou?   ;; se este meteorito já infetou algum patch
 ]
 
+turtles-own [
+  passos-sem-virar  ;; contador de passos desde a última mudança de direção
+  max-passos-retos  ;; número máximo de passos antes de virar
+]
+
 to setup 
   clear-all
   set-default-shape turtles "tatauga"
@@ -30,23 +35,12 @@ to setup
   
 end
 
-to go
-  ask turtles [
-    let next-patch patch-ahead 1
-    if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 [  
-        forward 1
-      ] 
-      if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 [ 
-        rt random 180
-      ]
-  ]
-  
- ;; Criar meteorito no topo, probabilidade baixa por tick
+to processar-meteoritos
+  ;; Criar meteorito no topo, probabilidade baixa por tick
   if random-float 1 < 0.05 [
     create-meteoritos 1 [
-      set shape "meteorito"
       setxy random-xcor max-pycor
-      set color orange
+      set shape "meteorito"
       set ja-infetou? false
     ]
   ]
@@ -54,9 +48,18 @@ to go
   ask meteoritos [
     cair
   ]
-  
-    tick
 end
+
+to go
+  ask turtles [
+    mover-tartaruga
+  ]
+  
+  processar-meteoritos
+  
+  tick
+end
+
 
 to mover-tartaruga  ;; procedimento das tartarugas
   let next-patch patch-ahead 1
@@ -108,22 +111,24 @@ to cair ;; comportamento dos meteoritos
 end
 
 to go_once
-  ask turtles[
-    let next-patch patch-ahead 1
-    if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 [  
-        forward 1
-      ] 
-      if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 [ 
-        rt random 180
-      ]
+  ask turtles [
+    mover-tartaruga
   ]
+  
+  processar-meteoritos
+  
+  tick
 end
+
 
 to go_n
   if step-counter < N_moves [
     ask turtles [
       mover-tartaruga
     ]
+    
+    processar-meteoritos
+    
     set step-counter step-counter + 1
     tick
   ]
