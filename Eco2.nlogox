@@ -2,10 +2,16 @@
 <model version="NetLogo 7.0.0" snapToGrid="true">
   <code><![CDATA[globals [
   step-counter
+  total-mortes        ;; contador total de mortes
+  total-nascimentos   ;; contador total de nascimentos
+  mortes-tick         ;; mortes no tick atual
+  nascimentos-tick    ;; nascimentos no tick atual
+  ;; energia-reproducao e taxa-reproducao são definidos pelos sliders
 ]
 
 breed [meteoritos meteorito]
 breed [algas alga]
+breed [tartarugas tartaruga]
 
 patches-own [
   afetado?           ;; se o patch foi atingido por um meteorito
@@ -16,9 +22,11 @@ meteoritos-own [
   ja-infetou?
 ]
 
-turtles-own [
+tartarugas-own [
   passos-sem-virar
   max-passos-retos
+  energia            ;; energia da tartaruga (para reprodução)
+  idade              ;; idade da tartaruga
 ]
 
 algas-own [
@@ -28,8 +36,9 @@ algas-own [
 
 to setup 
   clear-all
-  set-default-shape turtles "tatauga"
+  set-default-shape tartarugas "tatauga"
   set-default-shape algas "algas"
+  set-default-shape meteoritos "meteorito"
   
   ask patches [
     ;; Água e céu
@@ -39,13 +48,15 @@ to setup
   ]
   
   ;; Criar tartarugas
-  create-turtles Pop_size [
+  create-tartarugas Pop_size [
     move-to one-of patches with [pycor <= 9 and pycor >= -14 and pxcor >= -14 and pxcor <= 14]
     set heading random 360
     set size 1.5
     set color pink
     set passos-sem-virar 0
     set max-passos-retos 5 + random 10
+    set energia 50 + random 50  ;; energia inicial entre 50 e 100
+    set idade 0
   ]
   
   ;; Criar algas
@@ -55,31 +66,54 @@ to setup
     set color green
     set size 1.2
     set passos-alga 0
-    set max-passos-alga 10 + random 20  ;; movem-se mais lentamente que tartarugas
+    set max-passos-alga 10 + random 20
   ]
   
+  ;; Inicializar contadores
   set step-counter 0
+  set total-mortes 0
+  set total-nascimentos 0
+  set mortes-tick 0
+  set nascimentos-tick 0
+  
   reset-ticks
 end
 
 to go
-  ask algas [ mover-alga ]
-  desintoxicar-com-algas  ;; algas limpam logo após moverem
-  ask turtles [ mover-tartaruga ]
-  verificar-contaminacao  ;; depois verifica tartarugas
+  if not any? tartarugas [ stop ]  ;; para se não houver mais tartarugas
+  
+  ;; Reset contadores do tick
+  set mortes-tick 0
+  set nascimentos-tick 0
+  
   processar-meteoritos
+  
+  ask tartarugas [
+    mover-tartaruga
+    set energia energia - 1  ;; perde energia ao se mover
+    comer-alga
+    morrer-tartaruga
+    reproduzir-tartaruga
+  ]
+  
+  ask algas [ 
+    mover-alga 
+    desintoxicar-patch
+  ]
+  
+  verificar-contaminacao
   degradar-toxicidade
+  
   tick
 end
 
-
 to processar-meteoritos
+  ;; Criar meteoritos com probabilidade
   if random-float 1 < 0.05 [
     create-meteoritos 1 [
       set size 2
       set heading 180
       setxy random-xcor max-pycor
-      set shape "meteorito"
       set color orange
       set ja-infetou? false
     ]
@@ -90,13 +124,13 @@ to processar-meteoritos
   ]
 end
 
-to cair
+to cair  ;; procedimento do meteorito
   if pycor > min-pycor [
     set ycor ycor - 1
     set heading 180
     
-    ;; infeta uma vez dentro da água
-    if (not ja-infetou?) and (random-float 1 < 0.2) and (pycor < 10) [
+    ;; Infecta quando está dentro da água (pycor <= 10) e ainda não infectou
+    if (not ja-infetou?) and (pycor <= 10) and (random-float 1 < 0.3) [
       ask patch-here [
         set afetado? true
         set nivel-toxicidade 10
@@ -106,13 +140,13 @@ to cair
     ]
   ]
   
+  ;; Morre quando chega ao fundo
   if pycor <= min-pycor [
     die
   ]
 end
 
-
-to mover-tartaruga
+to mover-tartaruga  ;; procedimento da tartaruga
   let next-patch patch-ahead 1
   
   if passos-sem-virar >= max-passos-retos [
@@ -133,22 +167,57 @@ to mover-tartaruga
     set passos-sem-virar 0
     set max-passos-retos 5 + random 10
   ]
+  
+  ;; Incrementa idade
+  set idade idade + 1
 end
 
-to mover-alga
+to comer-alga  ;; procedimento da tartaruga
+  let presa one-of algas-here  ;; pega uma alga aleatória neste patch
+  if presa != nobody [         ;; se encontrou uma alga
+    ask presa [ die ]          ;; mata a alga
+    set energia energia + 30   ;; ganha energia
+  ]
+end
+
+to morrer-tartaruga  ;; procedimento da tartaruga
+  ;; morre se energia acabar
+  if energia < 0 [ 
+    set mortes-tick mortes-tick + 1
+    set total-mortes total-mortes + 1
+    die 
+  ]
+end
+
+to reproduzir-tartaruga  ;; procedimento da tartaruga
+  if random-float 100 < taxa-reproducao [  ;; joga "dados" para ver se reproduz
+    if energia > energia-reproducao [
+      set energia (energia / 2)  ;; divide energia entre pai e filho
+      hatch 1 [
+        rt random-float 360 
+        fd 1
+        set idade 0
+        set passos-sem-virar 0
+        set max-passos-retos 5 + random 10
+      ]
+      set nascimentos-tick nascimentos-tick + 1
+      set total-nascimentos total-nascimentos + 1
+    ]
+  ]
+end
+
+to mover-alga  ;; procedimento da alga
   let next-patch patch-ahead 1
   
-  ;; Algas movem-se mais lentamente e de forma mais suave
   if passos-alga >= max-passos-alga [
-    rt random 60 - 30  ;; vira menos bruscamente que tartarugas
+    rt random 60 - 30
     set passos-alga 0
     set max-passos-alga 10 + random 20
   ]
   
-  ;; Verifica limites da água (mesmo que tartarugas)
   if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 and 
      [pxcor] of next-patch >= -14 and [pxcor] of next-patch <= 14 [  
-    forward 0.5  ;; movem-se mais devagar (metade da velocidade)
+    forward 0.5
     set passos-alga passos-alga + 1
   ] 
   
@@ -158,46 +227,49 @@ to mover-alga
     set passos-alga 0
     set max-passos-alga 10 + random 20
   ]
+  
+  ;; Reprodução de algas (crescimento natural)
+  if random-float 1 < 0.005 and count algas < (Num_algas * 2) [
+    hatch 1 [
+      rt random-float 360
+      fd 2
+      set passos-alga 0
+      set max-passos-alga 10 + random 20
+    ]
+  ]
 end
 
-to desintoxicar-com-algas
-  ask algas [
-    ;; A alga limpa instantaneamente a célula onde está
-    let celula patch-here
-    ask celula [
-      if afetado? [
-        set afetado? false
-        set nivel-toxicidade 0
-        set pcolor [73 104 144]  ;; restaura cor da água imediatamente
-      ]
+to desintoxicar-patch  ;; procedimento da alga
+  ask patch-here [
+    if afetado? [
+      set afetado? false
+      set nivel-toxicidade 0
+      set pcolor [73 104 144]
     ]
   ]
 end
 
 to verificar-contaminacao
-  ;; Apenas tartarugas morrem com contaminação, algas não!
-  ask turtles with [breed != algas] [
-    ;; Verifica se a tartaruga está numa célula contaminada
+  ;; Apenas tartarugas morrem por contaminação
+  ask tartarugas [
     if [afetado?] of patch-here [
-      die  ;; tartaruga morre
+      set mortes-tick mortes-tick + 1
+      set total-mortes total-mortes + 1
+      die
     ]
   ]
 end
 
-
 to degradar-toxicidade
   ask patches with [afetado?] [
-    ;; Reduz o nível de toxicidade naturalmente (mais lento que com algas)
     set nivel-toxicidade nivel-toxicidade - 0.1
     
-    ;; Se já não estiver tóxico, limpa o patch
     if nivel-toxicidade <= 0 [
       set afetado? false
       set nivel-toxicidade 0
       set pcolor [73 104 144]
     ]
     
-    ;; Atualiza cor de patches ainda afetados
     if afetado? [
       atualizar-cor
     ]
@@ -205,38 +277,61 @@ to degradar-toxicidade
 end
 
 to atualizar-cor
-  ;; cores como listas RGB
-  let cor-inicial [0 100 0]        ;; verde escuro (tóxico)
-  let cor-final [73 104 144]       ;; azul do oceano
+  let cor-inicial [0 100 0]
+  let cor-final [73 104 144]
 
-  ;; calcula interpolação linear
   let r item 0 cor-final + (item 0 cor-inicial - item 0 cor-final) * (nivel-toxicidade / 10)
   let g item 1 cor-final + (item 1 cor-inicial - item 1 cor-final) * (nivel-toxicidade / 10)
   let b item 2 cor-final + (item 2 cor-inicial - item 2 cor-final) * (nivel-toxicidade / 10)
 
-  ;; define a cor da patch
   set pcolor (list r g b)
 end
 
-
-
 to go_once
-  ask turtles [ mover-tartaruga ]
-  ask algas [ mover-alga ]
-  desintoxicar-com-algas  ;; algas limpam PRIMEIRO
-  verificar-contaminacao  ;; depois verifica tartarugas
+  set mortes-tick 0
+  set nascimentos-tick 0
+  
   processar-meteoritos
+  
+  ask tartarugas [
+    mover-tartaruga
+    set energia energia - 1
+    comer-alga
+    morrer-tartaruga
+    reproduzir-tartaruga
+  ]
+  
+  ask algas [ 
+    mover-alga 
+    desintoxicar-patch
+  ]
+  
+  verificar-contaminacao
   degradar-toxicidade
   tick
 end
 
 to go_n
   if step-counter < N_moves [
-    ask turtles [ mover-tartaruga ]
-    ask algas [ mover-alga ]
-    desintoxicar-com-algas  ;; algas limpam PRIMEIRO
-    verificar-contaminacao  ;; depois verifica tartarugas
+    set mortes-tick 0
+    set nascimentos-tick 0
+    
     processar-meteoritos
+    
+    ask tartarugas [
+      mover-tartaruga
+      set energia energia - 1
+      comer-alga
+      morrer-tartaruga
+      reproduzir-tartaruga
+    ]
+    
+    ask algas [ 
+      mover-alga 
+      desintoxicar-patch
+    ]
+    
+    verificar-contaminacao
     degradar-toxicidade
     set step-counter step-counter + 1
     tick
@@ -245,6 +340,38 @@ end
 
 to-report prob[x]
   report (random-float 1 < x)
+end
+
+;; Reporters para os gráficos
+to-report populacao-tartarugas
+  report count tartarugas
+end
+
+to-report populacao-algas
+  report count algas
+end
+
+to-report patches-contaminados
+  report count patches with [afetado?]
+end
+
+to-report taxa-contaminacao
+  let total-patches-agua count patches with [pycor <= 10]
+  ifelse total-patches-agua > 0 
+    [ report (patches-contaminados / total-patches-agua) * 100 ]
+    [ report 0 ]
+end
+
+to-report media-energia-tartarugas
+  ifelse count tartarugas > 0
+    [ report mean [energia] of tartarugas ]
+    [ report 0 ]
+end
+
+to-report idade-media-tartarugas
+  ifelse count tartarugas > 0
+    [ report mean [idade] of tartarugas ]
+    [ report 0 ]
 end]]></code>
   <widgets>
     <view x="1010" wrappingAllowedX="true" y="20" frameRate="30.0" minPycor="-15" height="407" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="407" tickCounterLabel="ticks" maxPycor="15" updateMode="0" maxPxcor="15" minPxcor="-15"></view>
@@ -253,11 +380,11 @@ end]]></code>
     <button x="940" y="115" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
     <button x="940" y="160" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
     <slider x="755" step="1" y="205" max="100" width="250" display="Pop_size" height="50" min="0" direction="Horizontal" default="20.0" variable="Pop_size"></slider>
-    <slider x="755" step="1" y="260" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="58.0" variable="N_moves"></slider>
+    <slider x="755" step="1" y="260" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="98.0" variable="N_moves"></slider>
     <slider x="755" step="1" y="315" max="20" width="250" display="Num_algas" height="50" min="0" direction="Horizontal" default="10.0" variable="Num_algas"></slider>
-    <slider x="755" step="10" y="370" max="150" width="250" display="energia-reproducao" height="50" min="0" direction="Horizontal" default="10.0" variable="energia-reproducao"></slider>
-    <slider x="755" step="0.01" y="425" max="1" width="250" display="taxa-reproducao" height="50" min="0" direction="Horizontal" default="1.0" variable="taxa-reproducao"></slider>
-    <plot x="685" autoPlotX="true" yMax="10.0" autoPlotY="true" y="10" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Popolação">
+    <slider x="755" step="10" y="370" max="150" width="250" display="energia-reproducao" height="50" min="0" direction="Horizontal" default="150.0" variable="energia-reproducao"></slider>
+    <slider x="755" step="0.01" y="425" max="10" width="250" display="taxa-reproducao" height="50" min="0" direction="Horizontal" default="10.0" variable="taxa-reproducao"></slider>
+    <plot x="685" autoPlotX="true" yMax="10.0" autoPlotY="true" y="10" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="População">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="tartarugas" color="-2064490" legend="true">
@@ -274,7 +401,7 @@ end]]></code>
       <update></update>
       <pen interval="1.0" mode="0" display="nascimentos" color="-16777216" legend="true">
         <setup></setup>
-        <update>nascimentos-tick</update>
+        <update>plot nascimentos-tick</update>
       </pen>
     </plot>
     <plot x="205" autoPlotX="true" yMax="10.0" autoPlotY="true" y="10" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Mortes">
