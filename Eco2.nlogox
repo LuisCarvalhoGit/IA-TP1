@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.0" snapToGrid="true">
-  <code><![CDATA[globals [ step-counter total-mortes total-nascimentos mortes-tick nascimentos-tick ]
+  <code><![CDATA[globals [ 
+  step-counter 
+  total-mortes 
+  total-nascimentos 
+  mortes-tick 
+  nascimentos-tick
+  patches-de-agua  
+]
 
 breed [meteoritos meteorito]
 breed [tartarugas tartaruga]
@@ -19,24 +26,28 @@ to setup
   set-default-shape tartarugas "fish"
   set-default-shape meteoritos "meteorito"
   
+  
+  set patches-de-agua patches with [pycor <= 8 and pycor > -15 and pxcor >= -14 and pxcor <= 14]
+
   ask patches [
     ifelse pycor <= 10 
-    [set pcolor [73 104 144]] 
-    [set pcolor [130 170 222]]
+      [ set pcolor [73 104 144] ] 
+      [ set pcolor [130 170 222] ]
     set afetado? false
     set nivel-toxicidade 0
-    ifelse pycor <= 8 and pycor > -15[
-      let dist sqrt (pxcor ^ 2 + (pycor + 2) ^ 2)  ;; Centrar em (0, -2) para área de água
-      let max-dist 15
-      let fator max list 0 (1 - (dist / max-dist))
-      set quantidade-alga (random 50) * fator  ;; Mais algas iniciais no centro
-    ] [
-      set quantidade-alga 0
-    ]
+    set quantidade-alga 0 ;; Define todos a zero primeiro
+  ]
+  
+  ask patches-de-agua [
+    let dist sqrt (pxcor ^ 2 + (pycor + 2) ^ 2)
+    let max-dist 15
+    let fator max list 0 (1 - (dist / max-dist))
+    set quantidade-alga (random 50) * fator
   ]
   
   create-tartarugas Pop_size [
-    move-to one-of patches with [pycor <= 9 and pycor >= -14 and pxcor >= -14 and pxcor <= 14]
+    
+    move-to one-of patches-de-agua with [pxcor >= -14 and pxcor <= 14]
     set heading random 360
     set size 1.5
     set color pink
@@ -103,18 +114,19 @@ to cair
     set ycor ycor - 1
     set heading 180
     
-    ; O impacto acontece quando o meteorito alcança ou ultrapassa
-    ; a sua profundidade de impacto aleatória.
     if (not ja-infetou?) and (pycor <= profundidade-impacto) [
       
       let patch-de-impacto patch-here
       let toxicidade-maxima (1 + random-float severidade-impacto)
 
+      ; Pede aos patches no raio de impacto para verificarem a condição
       ask patches in-radius raio-impacto [
-        let distancia distance patch-de-impacto
-        let toxicidade-resultante toxicidade-maxima * (1 - (distancia / (raio-impacto + 1)))
+        
+        ;; O patch só é contaminado se estiver limpo 
+        if not afetado? [
+          let distancia distance patch-de-impacto
+          let toxicidade-resultante toxicidade-maxima * (1 - (distancia / (raio-impacto + 1)))
 
-        if toxicidade-resultante > nivel-toxicidade [
           set afetado? true
           set nivel-toxicidade toxicidade-resultante
         ]
@@ -129,23 +141,28 @@ end
 
 to mover-tartaruga
   let next-patch patch-ahead 1
+  
   if passos-sem-virar >= max-passos-retos [
     rt random 90 - 45
     set passos-sem-virar 0
     set max-passos-retos 5 + random 10
   ]
+  
   if [afetado?] of next-patch [ 
     if random-float 1 < 0.3 [ rt random 180 ]
   ]
-  if [pycor] of next-patch <= 8 and [pycor] of next-patch > -15 and [pxcor] of next-patch >= -14 and [pxcor] of next-patch <= 14 [
+  
+  
+  ifelse next-patch != nobody and member? next-patch patches-de-agua [
     forward 1
     set passos-sem-virar passos-sem-virar + 1
   ]
-  if [pycor] of next-patch > 8 or [pycor] of next-patch <= -15 or [pxcor] of next-patch < -14 or [pxcor] of next-patch > 14 [
+  [ ;; Se o próximo patch estiver fora dos limites
     rt random 180
     set passos-sem-virar 0
     set max-passos-retos 5 + random 10
   ]
+  
   set idade idade + 1
 end
 
@@ -185,13 +202,13 @@ to reproduzir-tartaruga
 end
 
 to crescer-algas
-  ask patches with [pycor <= 8 and pycor > -15] [  
+  ask patches-de-agua [  
     let dist sqrt (pxcor ^ 2 + (pycor + 2) ^ 2)  ;; Centrar em (0, -2)
     let max-dist 15
     let fator max list 0 (1 - (dist / max-dist))
     let crescimento taxa-crescimento-algas * fator * (1 - (nivel-toxicidade / 10))  
     set quantidade-alga quantidade-alga + crescimento
-    if quantidade-alga > max-alga [ set quantidade-alga max-alga ]
+    if quantidade-alga > max-alga-por-patch [ set quantidade-alga max-alga-por-patch ]
     if quantidade-alga < 0 [ set quantidade-alga 0 ]
   ]
 end
@@ -221,7 +238,7 @@ end
 to atualizar-cores-algas
   ask patches with [pycor <= 10] [
     ;; Cor base: Escala de azul (pouca alga) para verde (muita alga)
-    let intensidade-alga quantidade-alga / max-alga  ;; 0 a 1
+    let intensidade-alga quantidade-alga / max-alga-por-patch  ;; 0 a 1
     let r-base 73 * (1 - intensidade-alga)  ;; Azul -> Verde: reduz vermelho/azul, aumenta verde
     let g-base 104 + (100 - 104) * intensidade-alga  ;; Aumenta verde
     let b-base 144 * (1 - intensidade-alga)  ;; Reduz azul
@@ -312,18 +329,36 @@ end
 
 to-report idade-media-tartarugas
   ifelse count tartarugas > 0 [ report mean [idade] of tartarugas ] [ report 0 ]
+end
+
+to-report total-algas
+  ;; Reporta a soma da quantidade de alga de todos os patches
+  ;; que fazem parte do ecossistema aquático.
+  report sum [quantidade-alga] of patches-de-agua
 end]]></code>
   <widgets>
-    <view x="1100" wrappingAllowedX="true" y="20" frameRate="30.0" minPycor="-15" height="407" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="407" tickCounterLabel="ticks" maxPycor="15" updateMode="0" maxPxcor="15" minPxcor="-15"></view>
-    <button x="1030" y="70" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Go">go</button>
-    <button x="1025" y="160" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
-    <button x="1025" y="115" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
-    <button x="1030" y="25" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
-    <slider x="840" step="1" y="260" max="500" width="250" display="N_moves" height="50" min="10" direction="Horizontal" default="500.0" variable="N_moves"></slider>
-    <slider x="840" step="0.01" y="425" max="1" width="250" display="taxa-reproducao" height="50" min="0.1" direction="Horizontal" default="0.5" variable="taxa-reproducao"></slider>
-    <slider x="840" step="10" y="370" max="200" width="250" display="energia-reproducao" height="50" min="100" direction="Horizontal" default="100.0" variable="energia-reproducao"></slider>
-    <slider x="840" step="1" y="205" max="30" width="250" display="Pop_size" height="50" min="5" direction="Horizontal" default="15.0" variable="Pop_size"></slider>
-    <plot x="605" autoPlotX="true" yMax="10.0" autoPlotY="true" y="210" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Contaminação">
+    <view x="1115" wrappingAllowedX="true" y="25" frameRate="30.0" minPycor="-15" height="407" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="true" width="407" tickCounterLabel="ticks" maxPycor="15" updateMode="0" maxPxcor="15" minPxcor="-15"></view>
+    <button x="1115" y="435" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
+    <button x="1175" y="435" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Go">go</button>
+    <button x="1235" y="435" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
+    <button x="1305" y="435" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65" display="Go once">go_once</button>
+    <plot x="80" autoPlotX="true" yMax="6.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="385" display="Nascimentos">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="nascimentos" color="-13791810" legend="true">
+        <setup></setup>
+        <update>plot nascimentos-tick</update>
+      </pen>
+    </plot>
+    <plot x="835" autoPlotX="true" yMax="10.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="265" display="População de Peixes">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="tartarugas" color="-2064490" legend="true">
+        <setup></setup>
+        <update>plot count tartarugas</update>
+      </pen>
+    </plot>
+    <plot x="595" autoPlotX="true" yMax="10.0" autoPlotY="true" y="205" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="250" display="Contaminação">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="default" color="-12087248" legend="true">
@@ -331,15 +366,8 @@ end]]></code>
         <update>plot patches-contaminados</update>
       </pen>
     </plot>
-    <plot x="790" autoPlotX="true" yMax="10.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="População">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="tartarugas" color="-2064490" legend="true">
-        <setup></setup>
-        <update>plot count turtles</update>
-      </pen>
-    </plot>
-    <plot x="370" autoPlotX="true" yMax="10.0" autoPlotY="true" y="210" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Energia Média">
+    <slider x="595" step="0.1" y="385" max="100" width="250" display="frequencia-meteoritos" height="50" min="0" direction="Horizontal" default="10.0" variable="frequencia-meteoritos"></slider>
+    <plot x="360" autoPlotX="true" yMax="10.0" autoPlotY="true" y="205" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Energia Média">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="default" color="-3844592" legend="true">
@@ -347,30 +375,35 @@ end]]></code>
         <update>plot media-energia-tartarugas</update>
       </pen>
     </plot>
-    <slider x="840" step="0.01" y="475" max="1" width="250" display="taxa-crescimento-algas" height="50" min="0" direction="Horizontal" default="0.07" variable="taxa-crescimento-algas"></slider>
-    <plot x="555" autoPlotX="true" yMax="10.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Mortes">
+    <plot x="80" autoPlotX="true" yMax="10.0" autoPlotY="true" y="205" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="275" display="Quantidade de algas">
       <setup></setup>
       <update></update>
-      <pen interval="1.0" mode="0" display="default" color="-16777216" legend="true">
+      <pen interval="1.0" mode="0" display="default" color="-6565750" legend="true">
+        <setup></setup>
+        <update>plot total-algas</update>
+      </pen>
+    </plot>
+    <plot x="470" autoPlotX="true" yMax="6.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="360" display="Mortes">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="default" color="-12895429" legend="true">
         <setup></setup>
         <update>plot mortes-tick</update>
       </pen>
     </plot>
-    <slider x="840" step="1" y="315" max="500" width="250" display="pop-max-tartarugas" height="50" min="0" direction="Horizontal" default="475.0" variable="pop-max-tartarugas"></slider>
-    <slider x="585" step="1" y="390" max="100" width="250" display="max-alga" height="50" min="0" direction="Horizontal" default="59.0" variable="max-alga"></slider>
-    <plot x="320" autoPlotX="true" yMax="10.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Nascimentos">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="nascimentos" color="-16777216" legend="true">
-        <setup></setup>
-        <update>plot nascimentos-tick</update>
-      </pen>
-    </plot>
-    <slider x="585" step="0.1" y="445" max="100" width="250" display="frequencia-meteoritos" height="50" min="0" direction="Horizontal" default="13.8" variable="frequencia-meteoritos"></slider>
-    <slider x="585" step="1" y="495" max="10" width="250" display="severidade-impacto" height="50" min="1" direction="Horizontal" default="10.0" variable="severidade-impacto"></slider>
-    <slider x="1100" step="1" y="435" max="3" width="250" display="raio-impacto" height="50" min="0" direction="Horizontal" default="2.0" variable="raio-impacto"></slider>
-    <note x="435" y="450" backgroundDark="12621462" fontSize="13" width="150" markdown="false" height="41" textColorDark="-16777216" textColorLight="-16777216" backgroundLight="0">0% a 100%
+    <note x="595" y="445" backgroundDark="12621462" fontSize="13" width="140" markdown="false" height="61" textColorDark="-16777216" textColorLight="-16777216" backgroundLight="0">frequencia-meteoritos
+0% a 100%
 100% = Apocalipse</note>
+    <slider x="340" step="1" y="385" max="10" width="250" display="severidade-impacto" height="50" min="1" direction="Horizontal" default="10.0" variable="severidade-impacto"></slider>
+    <slider x="340" step="1" y="440" max="3" width="250" display="raio-impacto" height="50" min="0" direction="Horizontal" default="2.0" variable="raio-impacto"></slider>
+    <slider x="80" step="1" y="385" max="100" width="255" display="max-alga-por-patch" height="50" min="0" direction="Horizontal" default="59.0" variable="max-alga-por-patch"></slider>
+    <slider x="80" step="0.01" y="440" max="1" width="255" display="taxa-crescimento-algas" height="50" min="0" direction="Horizontal" default="0.07" variable="taxa-crescimento-algas"></slider>
+    <monitor x="850" precision="17" y="205" height="60" fontSize="11" width="250" display="Número de Peixes">count tartarugas</monitor>
+    <slider x="850" step="1" y="270" max="30" width="250" display="Pop_size" height="50" min="5" direction="Horizontal" default="8.0" variable="Pop_size"></slider>
+    <slider x="850" step="1" y="380" max="500" width="250" display="pop-max-tartarugas" height="50" min="0" direction="Horizontal" default="500.0" variable="pop-max-tartarugas"></slider>
+    <slider x="850" step="10" y="435" max="200" width="250" display="energia-reproducao" height="50" min="100" direction="Horizontal" default="200.0" variable="energia-reproducao"></slider>
+    <slider x="850" step="0.01" y="490" max="1" width="250" display="taxa-reproducao" height="50" min="0.1" direction="Horizontal" default="0.5" variable="taxa-reproducao"></slider>
+    <slider x="850" step="1" y="325" max="500" width="250" display="N_moves" height="50" min="10" direction="Horizontal" default="500.0" variable="N_moves"></slider>
   </widgets>
   <info>## WHAT IS IT?
 
