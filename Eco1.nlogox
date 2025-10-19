@@ -1,37 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.0" snapToGrid="true">
-  <code><![CDATA[globals [ 
-  step-counter
-  patches-de-agua ; <-- ALTERADO: Adicionado para definir os limites
+  <code><![CDATA[; ===== VARIÁVEIS GLOBAIS E DEFINIÇÃO DE AGENTES =====
+
+globals [ 
+  step-counter      ; Contador para o botão Go N
+  patches-de-agua   ; Guarda a "cerca invisível" onde os peixes podem nadar
 ]
 
 breed [peixes peixe]
 breed [meteoritos meteorito]
 
+; Cada patch do mundo só precisa de saber se está infetado ou não
 patches-own [ infetado? ]
+
+; Cada meteorito precisa de saber se já infetou para não o fazer mais do que uma vez
 meteoritos-own [ ja-infetou? ]
 
 ; --- PROCEDIMENTO DE CONFIGURAÇÃO (SETUP) ---
 to setup
-  clear-all
+  clear-all ; Limpa tudo do mundo
   
+  ; Define a área de água com limites em cima, baixo e lados
   set patches-de-agua patches with [pycor <= 10 and pycor > -15 and pxcor >= -14 and pxcor <= 14]
 
+  ; Pinta o fundo do mundo, dividindo entre céu e água
   ask patches [
-    ; Lógica EXATA do Eco2: só divide entre céu e água
     ifelse pycor <= 10 
-      [ set pcolor [73 104 144] ]  ; Água
-      [ set pcolor [130 170 222] ] ; Céu
-    set infetado? false
+      [ set pcolor [73 104 144] ]  ; Cor da água
+      [ set pcolor [130 170 222] ] ; Cor do céu
+    set infetado? false ; No início, está tudo limpo
   ]
-      set-default-shape peixes "fish"
+  
+  ; Cria a população inicial de peixes
+  set-default-shape peixes "fish"
   create-peixes num-peixes [
-
+    
     set color pink
     set size 1.5
+    ; Coloca os peixes em posições aleatórias dentro da água
     move-to one-of patches-de-agua
   ]
   
+  ; Reseta os contadores da simulação
   set step-counter 0
   reset-ticks
 end
@@ -39,14 +49,17 @@ end
 ; --- PROCEDIMENTOS DE EXECUÇÃO (GO) ---
 
 to go
+  ; Corre a simulação continuamente
   simular-tick
 end
 
 to go_once
+  ; Corre a simulação por um único passo
   simular-tick
 end
 
 to go_n
+  ; Corre a simulação por N passos, definidos no slider
   if step-counter < N_moves [
     simular-tick
     set step-counter step-counter + 1
@@ -56,56 +69,64 @@ end
 ; --- LÓGICA PRINCIPAL DA SIMULAÇÃO ---
 
 to simular-tick
-  processar-meteoritos
-  ask meteoritos [ cair ]
-  ask peixes [ mover-peixe ]
-  ask peixes [ verificar-morte-por-contacto ]
-  tick
+  ; Agrupa todas as ações que acontecem num único tick
+  processar-meteoritos      ; Vê se um novo meteorito é criado
+  ask meteoritos [ cair ]   ; Move os meteoritos que existem
+  ask peixes [ mover-peixe ] ; Move os peixes
+  ask peixes [ verificar-morte-por-contacto ] ; Vê se algum peixe morreu
+  tick                      ; Avança o relógio
 end
 
 ; --- COMPORTAMENTO DOS AGENTES E AMBIENTE ---
 
 to processar-meteoritos
+  ; Com base na probabilidade do slider, decide se um meteorito aparece
   if random-float 1.0 < chance-meteorito / 100 [
     set-default-shape meteoritos "meteorito"
     create-meteoritos 1 [
-      
       set color orange
       set size 2
-      set heading 180
+      set heading 180 ; Apontado para baixo
       set ja-infetou? false
+      ; Começa numa coluna aleatória no topo do mundo
       move-to one-of patches with [ pycor = max-pycor ]
     ]
   ]
 end
 
 to cair
+  ; Move o meteorito um passo para baixo
   fd 1
   
+  ; Se estiver debaixo de água e ainda não tiver infetado...
   if pycor <= 10 and not ja-infetou? [
+    ; ...tem uma pequena chance de infetar o patch atual
     if random-float 1.0 < 0.15 [
+      ; Só infeta se o patch estiver limpo, como pede o protocolo
       if not [infetado?] of patch-here [
         ask patch-here [
           set infetado? true
-          set pcolor [102 102 51]
+          set pcolor [102 102 51] ; Pinta o patch com cor de contaminação
         ]
       ]
-      set ja-infetou? true
+      set ja-infetou? true ; Marca como "já infetou" para não o fazer de novo
     ]
   ]
   
+  ; Se o meteorito chegar ao fundo do mundo, desaparece
   if pycor <= min-pycor [
     die
   ]
 end
 
 to mover-peixe
-  ; --- ALTERADO: Lógica de movimento igual à do Eco2 ---
+  ; Movimento aleatório simples
   rt random 50 - 25
   
   let patch-a-frente patch-ahead 1
   
-  ; Se o próximo patch estiver fora dos limites definidos, vira
+  ; Verifica se o próximo passo está fora da água. Se estiver, dá a volta.
+  ; Esta é a "barreira invisível".
   if patch-a-frente = nobody or not member? patch-a-frente patches-de-agua [ 
     rt 180 
   ]
@@ -114,6 +135,7 @@ to mover-peixe
 end
 
 to verificar-morte-por-contacto
+  ; Se um peixe está num patch infetado, morre
   if [infetado?] of patch-here [
     die
   ]
@@ -122,6 +144,7 @@ end
 ; --- REPORTERS PARA GRÁFICOS E MONITORES ---
 
 to-report percentagem-contaminacao
+  ; Calcula a percentagem de contaminação, mas apenas na área de água
   let patches-contaminados count patches-de-agua with [ infetado? ]
   let total-patches-agua count patches-de-agua
   
@@ -130,6 +153,7 @@ to-report percentagem-contaminacao
 end
 
 to-report populacao-peixes
+  ; Devolve o número atual de peixes para o gráfico/monitor
   report count peixes
 end]]></code>
   <widgets>
