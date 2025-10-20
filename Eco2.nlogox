@@ -112,7 +112,7 @@ to go
   verificar-contaminacao  ; Verifica se algum peixe morre por contaminação
   atualizar-cores-algas   ; Atualiza as cores do mundo com base nos novos valores
   
-  tick ; Avança o relógio da simulação
+  tick
 end
 
 ; ===== COMPORTAMENTO DOS METEORITOS =====
@@ -274,30 +274,32 @@ to verificar-contaminacao
 end
 
 to atualizar-cores-algas
+  ; Atualiza a cor de cada patch na área de água.
   ask patches with [pycor <= 10] [
     
-    ; A tua ideia: Usar um valor fixo (um "range definido") para a cor.
-    ; Vamos usar 100 como o nosso valor de referência para "verde máximo".
+    ; Define 70 como o valor de referência para "100% verde".
     let valor-fixo-para-cor 70
     
-    ; A intensidade da cor agora usa essa referência fixa.
-    ; Isto impede que o slider 'max-alga-por-patch' afete a cor.
+    ; Calcula a intensidade do verde (de 0 a 1) com base na referência fixa.
     let intensidade-alga min list 1 (quantidade-alga / valor-fixo-para-cor)
     
-    ; O resto do código para calcular a cor continua igual
+    ; Calcula a cor base, que vai de azul (pouca alga) a verde (muita alga).
     let r-base 73 * (1 - intensidade-alga)
     let g-base 104 + (100 - 104) * intensidade-alga
     let b-base 144 * (1 - intensidade-alga)
     
+    ; Calcula e aplica um "filtro" de toxicidade que torna a cor mais amarelada.
     let ajuste-toxicidade nivel-toxicidade / 5 * 50
     let r r-base + ajuste-toxicidade
     let g g-base - ajuste-toxicidade / 2
     let b b-base
     
+    ; Garante que os valores de cor RGB ficam no intervalo válido (0-255).
     set r min list 255 max list 0 r
     set g min list 255 max list 0 g
     set b min list 255 max list 0 b
     
+    ; Aplica a cor final ao patch.
     set pcolor (list r g b)
   ]
 end
