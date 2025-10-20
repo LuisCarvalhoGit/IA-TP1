@@ -164,7 +164,7 @@ end]]></code>
     <slider x="65" step="1" y="255" max="100" width="250" display="N_moves" height="50" min="0" direction="Horizontal" default="82.0" variable="N_moves"></slider>
     <button x="75" y="415" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="66" display="Go N">go_n</button>
     <button x="15" y="415" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Go">go</button>
-    <slider x="70" step="1" y="120" max="10" width="250" display="chance-meteorito" height="50" min="0" direction="Horizontal" default="5.0" variable="chance-meteorito"></slider>
+    <slider x="70" step="1" y="120" max="10" width="250" display="chance-meteorito" height="50" min="0" direction="Horizontal" default="4.0" variable="chance-meteorito"></slider>
   </widgets>
   <info>## WHAT IS IT?
 

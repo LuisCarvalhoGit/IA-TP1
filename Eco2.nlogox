@@ -449,9 +449,6 @@ end]]></code>
         <update>plot mortes-tick</update>
       </pen>
     </plot>
-    <note x="595" y="445" backgroundDark="12621462" fontSize="13" width="140" markdown="false" height="61" textColorDark="-16777216" textColorLight="-16777216" backgroundLight="0">frequencia-meteoritos
-0% a 100%
-100% = Apocalipse</note>
     <slider x="340" step="1" y="385" max="10" width="250" display="severidade-impacto" height="50" min="1" direction="Horizontal" default="10.0" variable="severidade-impacto"></slider>
     <slider x="340" step="1" y="440" max="3" width="250" display="raio-impacto" height="50" min="0" direction="Horizontal" default="2.0" variable="raio-impacto"></slider>
     <slider x="80" step="1" y="385" max="100" width="255" display="max-alga-por-patch" height="50" min="15" direction="Horizontal" default="15.0" variable="max-alga-por-patch"></slider>
