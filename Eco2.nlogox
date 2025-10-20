@@ -274,23 +274,30 @@ to verificar-contaminacao
 end
 
 to atualizar-cores-algas
-  ; Procedimento puramente visual. Calcula a cor de cada patch
-  ; misturando a cor base das algas com um "filtro" de toxicidade
   ask patches with [pycor <= 10] [
-    let intensidade-alga quantidade-alga / max-alga-por-patch
-    ; Cor base (azul para pouca alga, verde para muita)
+    
+    ; A tua ideia: Usar um valor fixo (um "range definido") para a cor.
+    ; Vamos usar 100 como o nosso valor de referência para "verde máximo".
+    let valor-fixo-para-cor 70
+    
+    ; A intensidade da cor agora usa essa referência fixa.
+    ; Isto impede que o slider 'max-alga-por-patch' afete a cor.
+    let intensidade-alga min list 1 (quantidade-alga / valor-fixo-para-cor)
+    
+    ; O resto do código para calcular a cor continua igual
     let r-base 73 * (1 - intensidade-alga)
     let g-base 104 + (100 - 104) * intensidade-alga
     let b-base 144 * (1 - intensidade-alga)
-    ; Adiciona um tom amarelado/vermelho se houver toxicidade
+    
     let ajuste-toxicidade nivel-toxicidade / 5 * 50
     let r r-base + ajuste-toxicidade
     let g g-base - ajuste-toxicidade / 2
     let b b-base
-    ; Garante que os valores de cor ficam entre 0 e 255
+    
     set r min list 255 max list 0 r
     set g min list 255 max list 0 g
     set b min list 255 max list 0 b
+    
     set pcolor (list r g b)
   ]
 end
@@ -415,7 +422,7 @@ end]]></code>
         <update>plot patches-contaminados</update>
       </pen>
     </plot>
-    <slider x="595" step="0.1" y="385" max="100" width="250" display="frequencia-meteoritos" height="50" min="0" direction="Horizontal" default="10.0" variable="frequencia-meteoritos"></slider>
+    <slider x="595" step="0.1" y="385" max="100" width="250" display="frequencia-meteoritos" height="50" min="0" direction="Horizontal" default="15.6" variable="frequencia-meteoritos"></slider>
     <plot x="360" autoPlotX="true" yMax="10.0" autoPlotY="true" y="205" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="Energia Média">
       <setup></setup>
       <update></update>
@@ -445,13 +452,13 @@ end]]></code>
 100% = Apocalipse</note>
     <slider x="340" step="1" y="385" max="10" width="250" display="severidade-impacto" height="50" min="1" direction="Horizontal" default="10.0" variable="severidade-impacto"></slider>
     <slider x="340" step="1" y="440" max="3" width="250" display="raio-impacto" height="50" min="0" direction="Horizontal" default="2.0" variable="raio-impacto"></slider>
-    <slider x="80" step="1" y="385" max="100" width="255" display="max-alga-por-patch" height="50" min="0" direction="Horizontal" default="59.0" variable="max-alga-por-patch"></slider>
-    <slider x="80" step="0.01" y="440" max="1" width="255" display="taxa-crescimento-algas" height="50" min="0" direction="Horizontal" default="0.07" variable="taxa-crescimento-algas"></slider>
+    <slider x="80" step="1" y="385" max="100" width="255" display="max-alga-por-patch" height="50" min="15" direction="Horizontal" default="15.0" variable="max-alga-por-patch"></slider>
+    <slider x="80" step="0.01" y="440" max="1" width="255" display="taxa-crescimento-algas" height="50" min="0" direction="Horizontal" default="1.0" variable="taxa-crescimento-algas"></slider>
     <monitor x="850" precision="17" y="205" height="60" fontSize="11" width="250" display="Número de Peixes">count peixes</monitor>
-    <slider x="850" step="1" y="270" max="30" width="250" display="Pop_size" height="50" min="5" direction="Horizontal" default="8.0" variable="Pop_size"></slider>
-    <slider x="850" step="1" y="380" max="500" width="250" display="pop-max-peixes" height="50" min="0" direction="Horizontal" default="500.0" variable="pop-max-peixes"></slider>
-    <slider x="850" step="10" y="435" max="200" width="250" display="energia-reproducao" height="50" min="100" direction="Horizontal" default="200.0" variable="energia-reproducao"></slider>
-    <slider x="850" step="0.01" y="490" max="1" width="250" display="taxa-reproducao" height="50" min="0.1" direction="Horizontal" default="0.5" variable="taxa-reproducao"></slider>
+    <slider x="850" step="1" y="270" max="30" width="250" display="Pop_size" height="50" min="5" direction="Horizontal" default="30.0" variable="Pop_size"></slider>
+    <slider x="850" step="1" y="380" max="500" width="250" display="pop-max-peixes" height="50" min="0" direction="Horizontal" default="9.0" variable="pop-max-peixes"></slider>
+    <slider x="850" step="10" y="435" max="200" width="250" display="energia-reproducao" height="50" min="100" direction="Horizontal" default="190.0" variable="energia-reproducao"></slider>
+    <slider x="850" step="0.01" y="490" max="1" width="250" display="taxa-reproducao" height="50" min="0.1" direction="Horizontal" default="1.0" variable="taxa-reproducao"></slider>
     <slider x="850" step="1" y="325" max="10000" width="250" display="N_moves" height="50" min="10" direction="Horizontal" default="10000.0" variable="N_moves"></slider>
   </widgets>
   <info>## WHAT IS IT?
